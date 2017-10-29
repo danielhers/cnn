@@ -28,11 +28,11 @@ if(PYTHON)
   check_cython_version(0.23)
   
   # Things to copy the files
-  file(GLOB DepFiles ${CMAKE_CURRENT_SOURCE_DIR}/dynet.py.in
-                     ${CMAKE_CURRENT_SOURCE_DIR}/dynet_config.py
+  file(GLOB DepFiles ${CMAKE_CURRENT_SOURCE_DIR}/dynet_config.py
                      ${CMAKE_CURRENT_SOURCE_DIR}/_dynet.pyx
                      ${CMAKE_CURRENT_SOURCE_DIR}/_dynet.pxd
                      ${CMAKE_CURRENT_SOURCE_DIR}/dynet_viz.py
+                     ${CMAKE_CURRENT_SOURCE_DIR}/__init__.py
   )
 
   if (WITH_CUDA_BACKEND)

@@ -4,7 +4,7 @@ import platform
 import zipfile
 import sys
 from distutils.command.build import build as _build
-from distutils.command.build_py import build_py as _build_py
+from distutils.command.install import install as _install
 from distutils.errors import DistutilsSetupError
 from distutils.spawn import find_executable
 from distutils.sysconfig import get_python_lib
@@ -16,7 +16,6 @@ import re
 from Cython.Distutils import build_ext as _build_ext
 from setuptools import setup
 from setuptools.extension import Extension
-from shutil import rmtree, copytree
 
 # urlretrieve has a different location in Python 2 and Python 3
 import urllib
@@ -94,6 +93,10 @@ if ORIG_DIR.rstrip('/').endswith('python'):
 else:
     BUILD_DIR = ORIG_DIR
     PYTHON_DIR = ORIG_DIR + '/python'
+if not os.path.isdir(BUILD_DIR):
+    log.info("Creating build directory " + BUILD_DIR)
+    os.makedirs(BUILD_DIR)
+os.chdir(BUILD_DIR)
 ENV = get_env(BUILD_DIR)
 
 # Find the paths
@@ -165,19 +168,7 @@ else:
 
 LIBRARY_DIRS.append(DYNET_LIB_DIR)
 
-INCLUDE_DIRS[:] = filter(None, [PROJECT_SOURCE_DIR, EIGEN3_INCLUDE_DIR])
-
-TARGET = [Extension(
-    "_dynet",  # name of extension
-    [PYTHON_DIR + "/_dynet.pyx"],  # filename of our Pyrex/Cython source
-    language="c++",  # this causes Pyrex/Cython to create C++ source
-    include_dirs=INCLUDE_DIRS,
-    libraries=LIBRARIES,
-    library_dirs=LIBRARY_DIRS,
-    extra_link_args=EXTRA_LINK_ARGS,
-    extra_compile_args=COMPILER_ARGS,
-    runtime_library_dirs=RUNTIME_LIB_DIRS,
-)]
+INCLUDE_DIRS[:] = filter(None, [".", PROJECT_SOURCE_DIR, EIGEN3_INCLUDE_DIR])
 
 class build(_build):
     user_options = [
@@ -234,8 +225,7 @@ class build(_build):
             if not os.path.isdir(BUILD_DIR):
                 log.info("Creating build directory " + BUILD_DIR)
                 os.makedirs(BUILD_DIR)
-
-            os.chdir(BUILD_DIR)
+                os.chdir(BUILD_DIR)
             if os.path.isdir(EIGEN3_INCLUDE_DIR):
                 log.info("Found eigen in " + EIGEN3_INCLUDE_DIR)
             else:
@@ -299,32 +289,22 @@ class build(_build):
         _build.run(self)
 
 
-class build_py(_build_py):
-    def run(self):
-        os.chdir(os.path.join(BUILD_DIR, "python"))
-        log.info("Building Python files...")
-        _build_py.run(self)
-
-
 class build_ext(_build_ext):
     def run(self):
-        if BUILT_EXTENSIONS:
-            INCLUDE_DIRS.append(EIGEN3_INCLUDE_DIR)
-            LIBRARY_DIRS.append(BUILD_DIR + "/dynet/")
-        log.info("Building Cython extensions...")
-        log.info("INCLUDE_DIRS=%r" % " ".join(INCLUDE_DIRS))
-        log.info("LIBRARIES=%r" % " ".join(LIBRARIES))
-        log.info("LIBRARY_DIRS=%r" % " ".join(LIBRARY_DIRS))
-        log.info("COMPILER_ARGS=%r" % " ".join(COMPILER_ARGS))
-        log.info("EXTRA_LINK_ARGS=%r" % " ".join(EXTRA_LINK_ARGS))
-        log.info("RUNTIME_LIB_DIRS=%r" % " ".join(RUNTIME_LIB_DIRS))
-        _build_ext.run(self)
-        if os.path.abspath(".") != SCRIPT_DIR:
-            log.info("Copying built extensions...")
-            for d in os.listdir("build"):
-                target_dir = os.path.join(SCRIPT_DIR, "build", d)
-                rmtree(target_dir, ignore_errors=True)
-                copytree(os.path.join("build", d), target_dir)
+        if not BUILT_EXTENSIONS:
+            log.info("INCLUDE_DIRS=%r" % " ".join(INCLUDE_DIRS))
+            log.info("LIBRARIES=%r" % " ".join(LIBRARIES))
+            log.info("LIBRARY_DIRS=%r" % " ".join(LIBRARY_DIRS))
+            log.info("COMPILER_ARGS=%r" % " ".join(COMPILER_ARGS))
+            log.info("EXTRA_LINK_ARGS=%r" % " ".join(EXTRA_LINK_ARGS))
+            log.info("RUNTIME_LIB_DIRS=%r" % " ".join(RUNTIME_LIB_DIRS))
+            _build_ext.run(self)
+
+
+class install(_install):
+    def run(self):
+        self.run_command("build")
+        _install.run(self)
 
 
 try:
@@ -370,8 +350,21 @@ setup(
     url="https://github.com/clab/dynet",
     download_url="https://github.com/clab/dynet/releases",
     license="Apache 2.0",
-    cmdclass={"build": build, "build_py": build_py, "build_ext": build_ext},
-    ext_modules=TARGET,
-    py_modules=["dynet", "dynet_viz", "dynet_config"],
+    cmdclass={"build": build, "build_ext": build_ext, "install": install},
+    ext_modules=[Extension(
+        "_dynet",  # name of extension
+        ["_dynet.pyx"],  # filename of our Pyrex/Cython source
+        language="c++",  # this causes Pyrex/Cython to create C++ source
+        include_dirs=INCLUDE_DIRS,
+        libraries=LIBRARIES,
+        library_dirs=LIBRARY_DIRS,
+        extra_link_args=EXTRA_LINK_ARGS,
+        extra_compile_args=COMPILER_ARGS,
+        runtime_library_dirs=RUNTIME_LIB_DIRS,
+    )],
+    packages=["dynet"],
+    package_dir={"dynet": "python"},
+    package_data={"dynet": ["python/*.so", "python/*.lib"]},
+    py_modules=["dynet_config"],
     data_files=[("../..", DATA_FILES)],
 )
