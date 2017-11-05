@@ -4,119 +4,26 @@ services:
 dist: trusty
 env:
   global:
-    - PYTHON=python TWINE_USERNAME=danielh
-    - secure: "j8Ro21/7h5FKuJHPJRHYfOiZHMoAfD/dfpqXZreGrl79jVSEdPZmmOdvFH++CqrRdttpxOf2Lg5qOfpXfziC5ecJx1USslBSo2qwAG9JwPkwjCK7MhouM64yhVedj9Es/H635aufbyRsDIhKr5poPrrH+UebEq/63QpEdDWIWq8="
-branches:
-  only:
-    - master
+    - PYTHON=python TWINE_USERNAME=danielh TRAVIS_TAG=2.0.1-13
+    - secure: "ijRS1vncRb4fGTjA2r7a0B19C+mly74XsXIzJNdt82uiAZRonfaII9tkArTG0TTKtdZL/zyL34mAtHhwbWFd+Y2wU1qERlKzRO4Ycw7UNbGXx39/2GO+8QzcdjaXtMl4uFV8cvwZG783cuxw1ekLUov/KM5Dk6578Q79V8XB7oSQXwOXI6Qzb+nVlAgPOsHoo7YcnV+Vx0QfRlO/6TZ30vCYwisz/5hcw31BaOooONPrfQ3lDnqlOD+qOqOx9ppzcz3LPpOD12N86d8K0YK7iPHrvYXY9X6F7gq2/jX3Ltwkaepyp4UQBlgr5r9AT524Ygh2+h82uCp8nVkRswn0Uq6uvnbNnuYrtCS1NpIu94GybyDNJA/MfbuH27/zUpY+RE1SvzyjQeZVjxfZeoyOW8mH7JMn5qrBM6A/3ibUGHOZ0i3MrBO8vA9NmmA8ROGwZzVLON7EY6o1OuHQjE72R9bFtNQz4m4B26PLLPOa1Mra1sLmB3E5lTnI+kr1BNpJqCMFWE9Ctdx1DTTn6EteenpELusy/Am2sGm6mIFcrsKbMcmPEJp1/6Yqr+MzNO7XBeON3P7YTlyg9pkSgZqvDqW01uBP0L6SfJ8jNcBF8uGpRZUwSEFBwwqBiwz+l82Y1ATi0tQaylrbeSIpo+0xPw9wXA9Kgk2QdtmywyxDH7I="
 jobs:
   include:
     - os: osx
       compiler: clang
       language: cpp
-      env: PYVER=2.7 PYNUM=2 PYTHON_INSTALL=manual
-      if: type = cron
-    - os: osx
-      compiler: clang
-      language: cpp
-      env: PYVER=2.7 PYNUM=2 PYTHON_INSTALL=pip BUILD_ARCH=x86_64
-      if: type = cron
-    - os: osx
-      compiler: clang
-      language: cpp
-      env: PYVER=3.4 PYNUM=3 PYTHON_INSTALL=manual
-      if: type = cron
-    - os: osx
-      compiler: clang
-      language: cpp
-      env: PYVER=3.4 PYNUM=3 PYTHON_INSTALL=pip BUILD_ARCH=x86_64
-      if: type = cron
-    - os: osx
-      compiler: clang
-      language: cpp
-      env: PYVER=3.5 PYNUM=3 PYTHON_INSTALL=manual
-      if: type = cron
+      env: PYVER=3.6 PYNUM=3 PYTHON_INSTALL=pip BUILD_ARCH=x86_64
     - os: osx
       compiler: clang
       language: cpp
       env: PYVER=3.5 PYNUM=3 PYTHON_INSTALL=pip BUILD_ARCH=x86_64
-      if: type = cron
     - os: osx
       compiler: clang
       language: cpp
-      env: PYVER=3.6 PYNUM=3 PYTHON_INSTALL=manual
-    - os: osx
-      compiler: clang
-      language: cpp
-      env: PYVER=3.6 PYNUM=3 PYTHON_INSTALL=pip BUILD_ARCH=x86_64
-    - os: linux
-      compiler: gcc
-      language: cpp
-      env: PYVER=2.7 PYNUM=2 PYTHON_INSTALL=manual
-    - os: linux
-      compiler: gcc
-      language: python
-      python: 2.7
-      env: PYVER=2.7 PYNUM=2 PYTHON_INSTALL=pip BUILD_ARCH=i686
-      if: type = cron
-    - os: linux
-      compiler: gcc
-      language: python
-      python: 2.7
-      env: PYVER=2.7 PYNUM=2 PYTHON_INSTALL=pip BUILD_ARCH=x86_64
-    - os: linux
-      compiler: gcc
-      language: cpp
-      env: PYVER=3.4 PYNUM=3 PYTHON_INSTALL=manual
-      if: type = cron
-    - os: linux
-      compiler: gcc
-      language: python
-      python: 3.4
-      env: PYVER=3.4 PYNUM=3 PYTHON_INSTALL=pip BUILD_ARCH=i686
-      if: type = cron
-    - os: linux
-      compiler: gcc
-      language: python
-      python: 3.4
       env: PYVER=3.4 PYNUM=3 PYTHON_INSTALL=pip BUILD_ARCH=x86_64
-      if: type = cron
-    - os: linux
-      compiler: gcc
+    - os: osx
+      compiler: clang
       language: cpp
-      env: PYVER=3.5 PYNUM=3 PYTHON_INSTALL=manual
-      if: type = cron
-    - os: linux
-      compiler: gcc
-      language: python
-      python: 3.5
-      env: PYVER=3.5 PYNUM=3 PYTHON_INSTALL=pip BUILD_ARCH=i686
-      if: type = cron
-    - os: linux
-      compiler: gcc
-      language: python
-      python: 3.5
-      env: PYVER=3.5 PYNUM=3 PYTHON_INSTALL=pip BUILD_ARCH=x86_64
-      if: type = cron
-    - os: linux
-      compiler: gcc
-      language: cpp
-      env: PYVER=3.6 PYNUM=3 PYTHON_INSTALL=manual
-    - os: linux
-      compiler: gcc
-      language: python
-      python: 3.6
-      env: PYVER=3.6 PYNUM=3 PYTHON_INSTALL=pip BUILD_ARCH=i686
-      if: type = cron
-    - os: linux
-      compiler: gcc
-      language: python
-      python: 3.6
-      env: PYVER=3.6 PYNUM=3 PYTHON_INSTALL=pip BUILD_ARCH=x86_64
-    - os: linux
-      compiler: gcc
-      language: cpp
-      env: PYVER=3.6 PYNUM=3 PYTHON_INSTALL=manual BACKEND=cuda
+      env: PYVER=2.7 PYNUM=2 PYTHON_INSTALL=pip BUILD_ARCH=x86_64
 
 install:
   - travis_retry .travis/install_dependencies.sh
@@ -138,6 +45,5 @@ deploy:
   script:
     - .travis/deploy.sh
   on:
-    repo: clab/dynet
-    tags: true
-    condition: "$PYTHON_INSTALL = pip"
+    all_branches: true
+    condition: "$PYTHON_INSTALL = pip && $TRAVIS_OS_NAME = osx"
