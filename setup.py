@@ -159,7 +159,7 @@ else:
     # in some OSX systems, the following extra flags are needed:
     if platform.system() == "Darwin":
         COMPILER_ARGS.extend(["-stdlib=libc++", "-mmacosx-version-min=10.7"])
-        EXTRA_LINK_ARGS.append("-Wl,-rpath," + LIBS_INSTALL_DIR)
+        EXTRA_LINK_ARGS.append("-Wl,-rpath,@loader_path/,-rpath," + LIBS_INSTALL_DIR)
         DATA_FILES += [LIBS_INSTALL_DIR + "lib" + lib + ".dylib" for lib in LIBRARIES]
     else:
         EXTRA_LINK_ARGS.append("-Wl,-rpath=%r" % LIBS_INSTALL_DIR + ",--no-as-needed")
