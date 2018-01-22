@@ -5202,7 +5202,7 @@ class BiRNNBuilder(object): # {{{
         builder = BiRNNBuilder(1, 128, 100, model, LSTMBuilder)
         [o1,o2,o3] = builder.transduce([i1,i2,i3])
     """
-    def __init__(self, num_layers, input_dim, hidden_dim, model, rnn_builder_factory, builder_layers=None):
+    def __init__(self, num_layers, input_dim, hidden_dim, model, rnn_builder_factory, builder_layers=None, name="birnn"):
         """Args:
             num_layers: depth of the BiRNN
             input_dim: size of the inputs
@@ -5212,7 +5212,7 @@ class BiRNNBuilder(object): # {{{
             builder_layers: list of (forward, backward) pairs of RNNBuilder instances to directly initialize layers
         """
         self.spec = num_layers, input_dim, hidden_dim, rnn_builder_factory, builder_layers
-        model = self.model = model.add_subcollection("birnn")
+        model = self.model = model.add_subcollection(name)
         if builder_layers is None:
             assert num_layers > 0
             assert hidden_dim % 2 == 0, "BiRNN hidden dimension must be even."
@@ -5304,6 +5304,119 @@ class BiRNNBuilder(object): # {{{
             es = [concatenate([f,b]) for f,b in zip(fs, reversed(bs))]
         return es
 # BiRNNBuilder }}}
+
+class HighwayRNNBuilder(BiRNNBuilder): # {{{
+    """
+    Builder for highway RNNs that delegates to regular RNNs and wires them together with highway connections.
+
+        builder = HighwayRNNBuilder(1, 128, 100, model, LSTMBuilder)
+        [o1,o2,o3] = builder.transduce([i1,i2,i3])
+    """
+    def __init__(self, num_layers, input_dim, hidden_dim, model, rnn_builder_factory, builder_layers=None):
+        """Args:
+            num_layers: depth of the highway RNN
+            input_dim: size of the inputs
+            hidden_dim: size of the outputs (and intermediate layer representations.) This hidden dim is split evenly between the two constituent RNNs, and thus must be even.
+            model
+            rnn_builder_factory: RNNBuilder subclass, e.g. LSTMBuilder
+            builder_layers: list of (forward, backward, Wrf, brf, Whf, Wrb, brb, Whb) pairs of
+                RNNBuilder instances (first two) and Parameter instances (last six) to directly initialize layers
+        """
+        super(HighwayRNNBuilder, self).__init__(num_layers, input_dim, hidden_dim, model, rnn_builder_factory,
+                                                builder_layers, name="highway_rnn")
+        self.builder_layers = [self.add_highway_connection_parameters(layer) for layer in self.builder_layers]
+
+    def add_highway_connection_parameters(self, layer):
+        try:
+            (f, b) = layer
+        except ValueError:  # highway connection parameters already added
+            return layer
+        _, input_dim, hidden_dim, *_ = f.spec
+        Wrf = Parameters((input_dim + hidden_dim, hidden_dim))
+        brf = Parameters(hidden_dim)
+        Whf = Parameters((input_dim, hidden_dim))
+        _, input_dim, hidden_dim, *_ = b.spec
+        Wrb = Parameters((input_dim + hidden_dim, hidden_dim))
+        brb = Parameters(hidden_dim)
+        Whb = Parameters((input_dim, hidden_dim))
+        return f, b, Wrf, brf, Whf, Wrb, brb, Whb
+
+
+    def whoami(self): return "HighwayRNNBuilder"
+
+    def add_inputs(self, es):
+        """
+        returns the list of state pairs (stateF, stateB) obtained by adding
+        inputs to both forward (stateF) and backward (stateB) RNNs.
+        Does not preserve the internal state after adding the inputs.
+        Args:
+            es (list): a list of Expression
+
+        see also transduce(xs)
+
+        code:`.transduce(xs)` is different from .add_inputs(xs) in the following way:
+
+        - code:`.add_inputs(xs)` returns a list of RNNState pairs. RNNState objects can be
+             queried in various ways. In particular, they allow access to the previous
+             state, as well as to the state-vectors (h() and s() )
+
+        - :code:`.transduce(xs)` returns a list of Expression. These are just the output
+             expressions. For many cases, this suffices.
+             transduce is much more memory efficient than add_inputs.
+        """
+        for e in es:
+            ensure_freshness(e)
+        for (fb, bb, Wrf, brf, Whf, Wrb, brb, Whb) in self.builder_layers[:-1]:
+            fs = fb.initial_state().transduce(es)
+            fr = [logistic(Wrf * concatenate([h, x]) + brf) for h, x in zip(fs[:-1], es[1:])]
+            fs = [fs[0]] + [r * h + (1 - r) * Whf * x for r, h, x in zip(fr, fs[1:], es[1:])]
+            bs = bb.initial_state().transduce(reversed(es))
+            br = [logistic(Wrb * concatenate([h, x]) + brb) for h, x in zip(bs[:-1], es[-2::-1])]
+            bs = [bs[0]] + [r * h + (1 - r) * Whb * x for r, h, x in zip(br, bs[1:], es[-2::-1])]
+            es = [concatenate([f, b]) for f, b in zip(fs, reversed(bs))]
+        (fb, bb, Wrf, brf, Whf, Wrb, brb, Whb) = self.builder_layers[-1]
+        fs = fb.initial_state().add_inputs(es)
+        fr = [logistic(Wrf * concatenate([f.h()[0], x]) + brf) for f, x in zip(fs[:-1], es[1:])]
+        for r, f, x in zip(fr, fs[1:], es[1:]):
+            f.set_h(r * f.h()[0] + (1 - r) * Whf * x)
+        bs = bb.initial_state().add_inputs(reversed(es))
+        br = [logistic(Wrb * concatenate([b.h()[0], x]) + brb) for b, x in zip(bs[:-1], es[-2::-1])]
+        for r, b, x in zip(br, bs[1:], es[-2::-1]):
+            b.set_h(r * b.h()[0] + (1 - r) * Whb * x)
+        return [(f,b) for f,b in zip(fs, reversed(bs))]
+
+    def transduce(self, es):
+        """
+        returns the list of output Expressions obtained by adding the given inputs
+        to the current state, one by one, to both the forward and backward RNNs,
+        and concatenating.
+
+        @param es: a list of Expression
+
+        see also add_inputs(xs)
+
+        .transduce(xs) is different from .add_inputs(xs) in the following way:
+
+            .add_inputs(xs) returns a list of RNNState pairs. RNNState objects can be
+             queried in various ways. In particular, they allow access to the previous
+             state, as well as to the state-vectors (h() and s() )
+
+            .transduce(xs) returns a list of Expression. These are just the output
+             expressions. For many cases, this suffices.
+             transduce is much more memory efficient than add_inputs.
+        """
+        for e in es:
+            ensure_freshness(e)
+        for (fb, bb, Wrf, brf, Whf, Wrb, brb, Whb) in self.builder_layers:
+            fs = fb.initial_state().transduce(es)
+            fr = [logistic(Wrf * concatenate([h, x]) + brf) for h, x in zip(fs[:-1], es[1:])]
+            fs = [fs[0]] + [r * h + (1 - r) * Whf * x for r, h, x in zip(fr, fs[1:], es[1:])]
+            bs = bb.initial_state().transduce(reversed(es))
+            br = [logistic(Wrb * concatenate([h, x]) + brb) for h, x in zip(bs[:-1], es[-2::-1])]
+            bs = [bs[0]] + [r * h + (1 - r) * Whb * x for r, h, x in zip(br, bs[1:], es[-2::-1])]
+            es = [concatenate([f, b]) for f, b in zip(fs, reversed(bs))]
+        return es
+# HighwayRNNBuilder }}}
 
 cdef class RNNState: # {{{
     """
